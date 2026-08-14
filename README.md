@@ -87,7 +87,7 @@ dsh-portable/
 ├── README.md
 ├── LICENSE
 ├── build/
-│   ├── launcher.cs             # C# 启动器源码（自解压 + 端口检查 + 单实例互斥锁）
+│   ├── launcher.cs             # C# 启动器源码（自解压 + 端口检查 + 单实例互斥锁 + 更新检查）
 │   ├── build.ps1               # 构建脚本（csc 编译并嵌入 zip + 图标）
 │   ├── app.ico                 # 应用图标（DeepSeek 蓝鲸，多尺寸）
 │   ├── app-icon.svg            # 蓝鲸图标 SVG 源文件
