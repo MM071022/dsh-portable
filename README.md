@@ -43,7 +43,7 @@ dsh.exe --version            # 其他 CLI 用法透传
 # 1. 准备输入
 #    dsh.zip  — dsh 包（含 node_modules 与 config 的完整目录压缩，根目录为 dsh\）
 #    node.zip — 仅含 node.exe 的压缩包
-# 2. 构建（产物为 dsh.exe）
+# 2. 构建（产物为 dsh.exe，默认嵌入 build/app.ico 蓝鲸图标）
 .\build\build.ps1 -DshZip .\dsh.zip -NodeZip .\node.zip -Out .\dsh.exe
 ```
 
@@ -77,7 +77,10 @@ dsh-portable/
 ├── LICENSE
 ├── build/
 │   ├── launcher.cs             # C# 启动器源码（自解压 + 端口检查 + 单实例互斥锁）
-│   ├── build.ps1               # 构建脚本（csc 编译并嵌入 zip）
+│   ├── build.ps1               # 构建脚本（csc 编译并嵌入 zip + 图标）
+│   ├── app.ico                 # 应用图标（DeepSeek 蓝鲸，多尺寸）
+│   ├── app-icon.svg            # 蓝鲸图标 SVG 源文件
+│   ├── make-ico.ps1            # 由 256px PNG 生成多尺寸 .ico
 │   ├── repair-session-log.mjs  # 会话日志修复工具
 │   └── strict-validate.mjs     # 日志严格校验工具（用真实解码器验证 seq 连续性）
 ```
