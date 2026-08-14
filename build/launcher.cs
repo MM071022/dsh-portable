@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -23,7 +24,8 @@ using System.Threading.Tasks;
 
 class DshLauncher
 {
-    const string Version = "0.1.0-rc.6";
+    const string Version = "0.1.0-rc.7";
+    const string Repo = "manjiayu20071022/dsh-portable";
     const string DefaultPort = "3080";
 
     static int Main(string[] args)
@@ -93,6 +95,7 @@ class DshLauncher
                         Console.Error.WriteLine("dsh: another dsh web instance is already running for this data directory (" + root + "); stop it before starting another (running two servers corrupts session history).");
                         return 1;
                     }
+                    CheckForUpdate();
                     return RunWeb(entry, nodeExe, passthrough);
                 }
             }
@@ -123,6 +126,82 @@ class DshLauncher
             sb.Append(char.IsLetterOrDigit(c) ? c : '_');
         }
         return sb.ToString();
+    }
+
+    /// Best-effort "new version available" notice. Queries the GitHub Releases
+    /// API with a short timeout so it can never stall startup; on any failure
+    /// (offline, rate-limited, parse error) it silently does nothing.
+    static void CheckForUpdate()
+    {
+        try
+        {
+            var req = (HttpWebRequest)WebRequest.Create(
+                "https://api.github.com/repos/" + Repo + "/releases/latest");
+            req.UserAgent = "dsh-portable";
+            req.Timeout = 4000;
+            req.ReadWriteTimeout = 4000;
+            string json;
+            using (var resp = (HttpWebResponse)req.GetResponse())
+            using (var sr = new StreamReader(resp.GetResponseStream()))
+                json = sr.ReadToEnd();
+            string tag = ExtractTag(json);
+            if (tag == null) return;
+            string latest = tag.TrimStart('v', 'V');
+            if (CompareVersions(latest, Version) > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine("  dsh-portable " + latest + " is available (you are on " + Version + ")");
+                Console.WriteLine("  download: https://github.com/" + Repo + "/releases/latest");
+                Console.WriteLine();
+            }
+        }
+        catch
+        {
+            // never block or fail startup because the update probe failed
+        }
+    }
+
+    static string ExtractTag(string json)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    /// Compare "0.1.0" / "0.1.0-rc.7" style versions: negative, zero, positive.
+    static int CompareVersions(string a, string b)
+    {
+        int rcA, rcB;
+        string coreA = StripRc(a, out rcA);
+        string coreB = StripRc(b, out rcB);
+        string[] pa = coreA.Split('.');
+        string[] pb = coreB.Split('.');
+        int n = Math.Max(pa.Length, pb.Length);
+        for (int i = 0; i < n; i++)
+        {
+            int va = i < pa.Length ? ParseNum(pa[i]) : 0;
+            int vb = i < pb.Length ? ParseNum(pb[i]) : 0;
+            if (va != vb) return va < vb ? -1 : 1;
+        }
+        if (rcA != rcB) return rcA < rcB ? -1 : 1;
+        return 0;
+    }
+
+    static string StripRc(string version, out int rc)
+    {
+        int idx = version.IndexOf("-rc", StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            rc = ParseNum(version.Substring(idx + 3).TrimStart('.'));
+            return version.Substring(0, idx);
+        }
+        rc = int.MaxValue; // a release (no -rc) is newer than any rc
+        return version;
+    }
+
+    static int ParseNum(string s)
+    {
+        int n;
+        return int.TryParse(s, out n) ? n : 0;
     }
 
     static string FindPort(List<string> args)
