@@ -1,0 +1,11 @@
+# 构建产物与运行时通过 GitHub Release 附件分发，不进仓库
+*.exe
+*.zip
+*.orig
+*.bak-*
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
