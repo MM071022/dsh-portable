@@ -1,13 +1,14 @@
 # dsh-portable
 
-DeepSeek Harness（dsh）的 Windows 便携单文件版：一个 `dsh.exe` 内嵌完整的 dsh 运行环境与 Node.js，
-双击即可在浏览器打开 Web UI（默认 http://127.0.0.1:3080），无需安装 Node.js。
+DeepSeek Harness（dsh）的便携版：`dsh.exe`（Windows）或 `dsh` 脚本（Linux、macOS）内嵌完整的
+dsh 运行环境与 Node.js，双击（Windows）或一条命令（Linux/macOS）即可在浏览器打开 Web UI
+（默认 http://127.0.0.1:3080），无需预先安装 Node.js。
 
 ## 特性
 
-- **单文件分发**：`dsh.exe` 内嵌 dsh 包（`dsh.zip`）与 `node.exe`（`node.zip`），无需预先安装任何运行时。
-- **首次运行自动解压**：解压到 `%LOCALAPPDATA%\dsh-exe\<version>`，之后直接启动。
-- **幂等启动**：Web 端口已被占用时只打开浏览器并退出，重复双击不会产生重复服务器。
+- **单文件/自包含分发**：Windows 为单个 `dsh.exe`；Linux/macOS 为自带 `node` + dsh 包的 tarball，无需预先安装任何运行时。
+- **首次运行自动解压**（Windows）：解压到 `%LOCALAPPDATA%\dsh-exe\<version>`，之后直接启动。
+- **幂等启动**：Web 端口已被占用时只打开浏览器并退出，重复启动不会产生重复服务器。
 - **单实例保护**：同一数据目录只允许一个 dsh 服务器；再启动第二个实例会被拒绝，
   避免两个服务器并发写坏同一份会话历史。
 - **会话日志自愈**：读取端自动处理被并发/过期写入者重写的日志段，"历史加载失败"不再出现。
@@ -15,15 +16,29 @@ DeepSeek Harness（dsh）的 Windows 便携单文件版：一个 `dsh.exe` 内�
 
 ## 快速开始
 
+### Windows
+
 1. 从 [Releases](../../releases) 下载 `dsh.exe`（约 110 MB，内嵌完整运行时）。
 2. 双击运行，或命令行执行 `dsh.exe web`。
 3. 浏览器自动打开 http://127.0.0.1:3080。
 
+### Linux / macOS
+
+1. 从 [Releases](../../releases) 下载对应平台的 `dsh-portable-<version>-<os>-<arch>.tar.gz`
+   （`linux-x64`、`linux-arm64`、`darwin-x64`、`darwin-arm64`）。
+2. 解压并运行：
+   ```sh
+   tar -xzf dsh-portable-0.1.0-rc.8-linux-x64.tar.gz
+   ./dsh          # 或 ./dsh web，等价于 dsh web
+   ```
+3. 浏览器自动打开 http://127.0.0.1:3080。可把解压目录里的 `dsh` 软链到 `~/.local/bin/dsh`
+   （macOS 为 `/usr/local/bin/dsh`）以便全局使用。
+
 命令行用法与 `dsh` 一致，例如：
 
 ```text
-dsh.exe web                  # 启动 Web UI（默认端口 3080）
-dsh.exe web --port 8080      # 指定端口
+dsh.exe web                  # Windows：启动 Web UI（默认端口 3080）
+./dsh web --port 8080        # Linux/macOS：指定端口
 dsh.exe --version            # 其他 CLI 用法透传
 ```
 
@@ -86,9 +101,13 @@ seq 区间，日志被读取端判定为损坏（`corrupt session log: seq gap i
 dsh-portable/
 ├── README.md
 ├── LICENSE
+├── .github/workflows/
+│   └── release-unix.yml       # GitHub Actions：在各平台构建 Linux/macOS tarball
 ├── build/
-│   ├── launcher.cs             # C# 启动器源码（自解压 + 端口检查 + 单实例互斥锁 + 更新检查）
-│   ├── build.ps1               # 构建脚本（csc 编译并嵌入 zip + 图标）
+│   ├── launcher.cs             # C# 启动器源码（Windows，自解压 + 端口检查 + 单实例互斥锁 + 更新检查）
+│   ├── build.ps1               # Windows 构建脚本（csc 编译并嵌入 zip + 图标）
+│   ├── launcher.sh             # POSIX 启动器（Linux/macOS：单实例锁 + 更新检查 + 浏览器打开）
+│   ├── build-unix.sh           # Linux/macOS 打包脚本（组装 dsh + node + launcher 的 tarball）
 │   ├── app.ico                 # 应用图标（DeepSeek 蓝鲸，多尺寸）
 │   ├── app-icon.svg            # 蓝鲸图标 SVG 源文件
 │   ├── make-ico.ps1            # 由 256px PNG 生成多尺寸 .ico

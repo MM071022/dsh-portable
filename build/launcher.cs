@@ -24,8 +24,8 @@ using System.Threading.Tasks;
 
 class DshLauncher
 {
-    const string Version = "0.1.0-rc.7";
-    const string Repo = "manjiayu20071022/dsh-portable";
+    const string Version = "0.1.0-rc.8";
+    const string Repo = "MM071022/dsh-portable";
     const string DefaultPort = "3080";
 
     static int Main(string[] args)
