@@ -41,11 +41,9 @@ jobs:
             arch: arm64
             node_platform: darwin-arm64
             node_ext: tar.gz
-          - runner: macos-13
-            os: darwin
-            arch: x64
-            node_platform: darwin-x64
-            node_ext: tar.gz
+          # Intel macOS (darwin-x64) is intentionally omitted: GitHub's last
+          # Intel runner image (macos-13) is deprecated and never provisions.
+          # Apple Silicon (arm64) covers all Macs from 2020 onward.
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4

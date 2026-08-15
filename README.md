@@ -25,7 +25,7 @@ dsh 运行环境与 Node.js，双击（Windows）或一条命令（Linux/macOS�
 ### Linux / macOS
 
 1. 从 [Releases](../../releases) 下载对应平台的 `dsh-portable-<version>-<os>-<arch>.tar.gz`
-   （`linux-x64`、`linux-arm64`、`darwin-x64`、`darwin-arm64`）。
+   （`linux-x64`、`linux-arm64`、`darwin-arm64`）。
 2. 解压并运行：
    ```sh
    tar -xzf dsh-portable-0.1.0-rc.8-linux-x64.tar.gz
@@ -33,6 +33,9 @@ dsh 运行环境与 Node.js，双击（Windows）或一条命令（Linux/macOS�
    ```
 3. 浏览器自动打开 http://127.0.0.1:3080。可把解压目录里的 `dsh` 软链到 `~/.local/bin/dsh`
    （macOS 为 `/usr/local/bin/dsh`）以便全局使用。
+
+> 说明：macOS 仅提供 Apple Silicon（`darwin-arm64`，覆盖 2020 年后的所有 Mac）；
+> Intel Mac 因 GitHub 已弃用 Intel macOS 构建机（macos-13）暂不提供。
 
 命令行用法与 `dsh` 一致，例如：
 
