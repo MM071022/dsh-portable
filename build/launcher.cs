@@ -38,6 +38,9 @@ class DshLauncher
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "dsh-exe");
             string install = Path.Combine(root, Version);
+            string dataRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".dsh");
             string marker = Path.Combine(install, ".extracted.ok");
             string dshDir = Path.Combine(install, "dsh");
             string nodeExe = Path.Combine(install, "node.exe");
@@ -76,7 +79,7 @@ class DshLauncher
             if (webMode)
             {
                 string port = FindPort(passthrough);
-                if (port != "0" && PortOpen("127.0.0.1", port))
+                if (port != "0" && DshWebOpen(port))
                 {
                     // A dsh web server is already running on that port.
                     OpenBrowser("http://127.0.0.1:" + port);
@@ -88,11 +91,11 @@ class DshLauncher
                 // The port check above only covers same-port duplicates, so a
                 // second instance on another port must be refused here.
                 bool createdNew;
-                using (var singleInstance = new Mutex(true, MutexName(root), out createdNew))
+                using (var singleInstance = new Mutex(true, MutexName(dataRoot), out createdNew))
                 {
                     if (!createdNew)
                     {
-                        Console.Error.WriteLine("dsh: another dsh web instance is already running for this data directory (" + root + "); stop it before starting another (running two servers corrupts session history).");
+                        Console.Error.WriteLine("dsh: another dsh web instance is already running for this data directory (" + dataRoot + "); stop it before starting another (running two servers corrupts session history).");
                         return 1;
                     }
                     CheckForUpdate();
@@ -215,14 +218,23 @@ class DshLauncher
         return DefaultPort;
     }
 
-    static bool PortOpen(string host, string port)
+    static bool DshWebOpen(string port)
     {
         try
         {
-            using (var client = new TcpClient())
+            var req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + port + "/");
+            req.Method = "GET";
+            req.Timeout = 700;
+            req.ReadWriteTimeout = 700;
+            req.AllowAutoRedirect = false;
+            using (var resp = (HttpWebResponse)req.GetResponse())
+            using (var sr = new StreamReader(resp.GetResponseStream()))
             {
-                var task = client.ConnectAsync(host, int.Parse(port));
-                return task.Wait(700) && client.Connected;
+                char[] buffer = new char[65536];
+                int count = sr.ReadBlock(buffer, 0, buffer.Length);
+                string body = new string(buffer, 0, count);
+                return body.IndexOf("dsh", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       body.IndexOf("DeepSeek Harness", StringComparison.OrdinalIgnoreCase) >= 0;
             }
         }
         catch

@@ -51,13 +51,7 @@ case "$OS" in
         ;;
 esac
 
-if [ -n "$DSH_EXE_HOME" ]; then
-    DATA_ROOT="$DSH_EXE_HOME"
-elif [ "$OSNAME" = "darwin" ]; then
-    DATA_ROOT="$HOME/Library/Application Support/dsh-exe"
-else
-    DATA_ROOT="$HOME/.local/share/dsh-exe"
-fi
+DATA_ROOT="$HOME/.dsh"
 mkdir -p "$DATA_ROOT"
 
 # --- helpers -----------------------------------------------------------------
@@ -69,10 +63,9 @@ open_browser() {
     fi
 }
 
-# Exit 0 if the port is open, 1 otherwise. Uses the bundled node so there is no
-# dependency on nc / /dev/tcp (the latter is a bashism and absent from dash).
-port_open() {
-    "$NODE" -e 'const n=require("net"),s=n.connect('"$1"',"127.0.0.1");s.setTimeout(700);s.once("connect",()=>process.exit(0));s.once("timeout",()=>process.exit(1));s.once("error",()=>process.exit(1))' >/dev/null 2>&1
+# Exit 0 only when the port serves a page that identifies itself as dsh.
+dsh_web_open() {
+    "$NODE" -e 'const h=require("http"),r=h.get({host:"127.0.0.1",port:process.argv[1],path:"/",timeout:700},x=>{let b="";x.setEncoding("utf8");x.on("data",c=>{if(b.length<65536)b+=c});x.on("end",()=>process.exit(/dsh|deepseek harness/i.test(b)?0:1))});r.on("timeout",()=>r.destroy());r.on("error",()=>process.exit(1))' "$1" >/dev/null 2>&1
 }
 
 find_port() {
@@ -111,6 +104,12 @@ if [ "$webmode" -eq 0 ]; then
 fi
 
 # --- web mode ----------------------------------------------------------------
+port="$(find_port "$@")"
+if [ "$port" != "0" ] && dsh_web_open "$port"; then
+    open_browser "http://127.0.0.1:$port"
+    exit 0
+fi
+
 # Single-instance lock: a lock directory is atomic on POSIX; a stale lock (dead
 # pid) is recovered automatically.
 LOCK="$DATA_ROOT/.instance-lock"
@@ -135,27 +134,36 @@ trap 'rm -rf "$LOCK"' EXIT
 
 check_update
 
-port="$(find_port "$@")"
-if [ "$port" != "0" ] && port_open "$port"; then
-    open_browser "http://127.0.0.1:$port"
-    exit 0
-fi
-
-# Start the server and open the browser once its URL line appears. Output is
-# passed through so the server's terminal UI/logs stay visible.
+# Start the server through a FIFO so output stays visible without losing the
+# Node process exit status (a plain POSIX pipeline reports the reader's status).
 opened=0
-"$NODE" "$ENTRY" "$@" 2>&1 | {
-    while IFS= read -r line; do
-        printf '%s\n' "$line"
-        if [ "$opened" -eq 0 ]; then
-            case "$line" in
-                *"http://"*)
-                    url="${line#*http://}"
-                    url="http://${url%%[[:space:]]*}"
-                    open_browser "$url"
-                    opened=1
-                    ;;
-            esac
-        fi
-    done
+stream_dir="$(mktemp -d)"
+stream="$stream_dir/output"
+mkfifo "$stream"
+child_pid=""
+cleanup() {
+    if [ -n "$child_pid" ]; then kill "$child_pid" 2>/dev/null || true; fi
+    rm -rf "$LOCK" "$stream_dir"
 }
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
+
+"$NODE" "$ENTRY" "$@" >"$stream" 2>&1 &
+child_pid=$!
+while IFS= read -r line; do
+    printf '%s\n' "$line"
+    if [ "$opened" -eq 0 ]; then
+        case "$line" in
+            *"http://"*)
+                url="${line#*http://}"
+                url="http://${url%%[[:space:]]*}"
+                open_browser "$url"
+                opened=1
+                ;;
+        esac
+    fi
+done <"$stream"
+
+if wait "$child_pid"; then status=0; else status=$?; fi
+child_pid=""
+exit "$status"

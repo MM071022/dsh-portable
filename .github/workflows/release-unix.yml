@@ -60,10 +60,12 @@ jobs:
 
       - name: Download bundled Node.js
         run: |
-          curl -fsSL -o node.tar \
-            "https://nodejs.org/dist/v24.19.0/node-v24.19.0-${{ matrix.node_platform }}.${{ matrix.node_ext }}"
+          NODE_ARCHIVE="node-v24.19.0-${{ matrix.node_platform }}.${{ matrix.node_ext }}"
+          curl -fsSLO "https://nodejs.org/dist/v24.19.0/$NODE_ARCHIVE"
+          curl -fsSLO "https://nodejs.org/dist/v24.19.0/SHASUMS256.txt"
+          grep "  $NODE_ARCHIVE\$" SHASUMS256.txt | shasum -a 256 -c -
           mkdir -p nodedir
-          tar -xf node.tar -C nodedir
+          tar -xf "$NODE_ARCHIVE" -C nodedir
           NODE_BIN="$(find nodedir -type f -name node | head -n 1)"
           if [ -z "$NODE_BIN" ]; then echo "node binary not found after extract" >&2; exit 1; fi
           chmod +x "$NODE_BIN"
