@@ -55,7 +55,10 @@ jobs:
           node-version: "24"
 
       - name: Install dsh package (platform-correct native modules)
-        run: npm install -g "@deepseek-ai/dsh@${{ inputs.dsh_version }}"
+        run: |
+          npm install -g \
+            --allow-scripts="@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs" \
+            "@deepseek-ai/dsh@${{ inputs.dsh_version }}"
 
       - name: Download bundled Node.js
         run: |
@@ -74,7 +77,7 @@ jobs:
       - name: Assemble tarball
         run: |
           mkdir -p dist
-          ./build/build-unix.sh \
+          sh build/build-unix.sh \
             "$(npm root -g)/@deepseek-ai/dsh" \
             "$NODE_BIN" \
             "${{ matrix.os }}" \
