@@ -1,0 +1,89 @@
+name: build-unix
+
+# Builds the Linux/macOS portable tarballs and attaches them to an existing
+# GitHub release (created with the same tag by the maintainer, who also uploads
+# the Windows exe). Triggered manually via workflow_dispatch; `version` must
+# match the release tag's version (e.g. v0.1.0-rc.8 -> 0.1.0-rc.8).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Portable release version (e.g. 0.1.0-rc.8)"
+        required: true
+        default: "0.1.0-rc.8"
+      dsh_version:
+        description: "@deepseek-ai/dsh npm version to bundle (e.g. 0.1.0-rc.6)"
+        required: true
+        default: "0.1.0-rc.6"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            os: linux
+            arch: x64
+            node_platform: linux-x64
+            node_ext: tar.xz
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+            node_platform: linux-arm64
+            node_ext: tar.xz
+          - runner: macos-14
+            os: darwin
+            arch: arm64
+            node_platform: darwin-arm64
+            node_ext: tar.gz
+          - runner: macos-13
+            os: darwin
+            arch: x64
+            node_platform: darwin-x64
+            node_ext: tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dsh package (platform-correct native modules)
+        run: npm install -g "@deepseek-ai/dsh@${{ inputs.dsh_version }}"
+
+      - name: Download bundled Node.js
+        run: |
+          curl -fsSL -o node.tar \
+            "https://nodejs.org/dist/v24.19.0/node-v24.19.0-${{ matrix.node_platform }}.${{ matrix.node_ext }}"
+          mkdir -p nodedir
+          tar -xf node.tar -C nodedir
+          NODE_BIN="$(find nodedir -type f -name node | head -n 1)"
+          if [ -z "$NODE_BIN" ]; then echo "node binary not found after extract" >&2; exit 1; fi
+          chmod +x "$NODE_BIN"
+          echo "NODE_BIN=$NODE_BIN" >> "$GITHUB_ENV"
+
+      - name: Stamp version into the launcher
+        run: sed -i.bak "s/^VERSION=.*/VERSION=\"${{ inputs.version }}\"/" build/launcher.sh && rm -f build/launcher.sh.bak
+
+      - name: Assemble tarball
+        run: |
+          mkdir -p dist
+          ./build/build-unix.sh \
+            "$(npm root -g)/@deepseek-ai/dsh" \
+            "$NODE_BIN" \
+            "${{ matrix.os }}" \
+            "${{ matrix.arch }}" \
+            "${{ inputs.version }}" \
+            dist
+
+      - name: Upload tarball to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "v${{ inputs.version }}" dist/*.tar.gz --clobber
